@@ -12,12 +12,78 @@ killer_links = killer_tab.select("div.charPortraitImage a")
 survivor_links = survivor_tab.select("div.charPortraitImage a")
 
 
-import requests
-from bs4 import BeautifulSoup
-
 def perk_scraper(link):
-    res = requests.get(link)
-    soup = BeautifulSoup(res.text, 'lxml')
+    try:
+        res = requests.get(link)
+        soup = BeautifulSoup(res.text, 'lxml')
+        perks = []
+
+        # Abordagem alternativa para encontrar a tabela de perks
+        # Procurar por tabelas que contenham o texto "Perk" em algum lugar
+        tables = soup.find_all('table', class_='wikitable')
+        perk_table = None
+
+        for table in tables:
+            if table.find(string="Perk") or table.find(string="Perks"):
+                perk_table = table
+                break
+
+        if not perk_table:
+            # Tentar por cabeçalho
+            perks_header = soup.find(lambda tag: tag.name in ['h2', 'h3'] and 'Perks' in tag.text)
+            if perks_header:
+                perk_table = perks_header.find_next('table', class_='wikitable')
+
+        if not perk_table:
+            return perks
+
+        # Processar todas as linhas válidas (ignorando cabeçalhos)
+        for row in perk_table.find_all('tr'):
+            # Verificar se a linha contém uma perk (deve ter pelo menos 3 colunas)
+            if len(row.find_all(['th', 'td'])) < 3:
+                continue
+
+            # Verificar se a linha contém um ícone de perk
+            if not row.find('img', alt=lambda x: x and 'IconPerks' in x):
+                continue
+
+            cols = row.find_all(['th', 'td'])
+
+            # Ícone da perk
+            icon = cols[0].find('img')
+            icon_url = url_base + icon['src'] if icon else None
+
+            # Nome da perk
+            name_link = cols[1].find('a')
+            perk_name = name_link.text.strip() if name_link else cols[1].get_text(strip=True)
+
+            # Descrição completa
+            description = ""
+            for element in cols[2].contents:
+                if isinstance(element, str):
+                    description += element.strip() + " "
+                elif element.name in ['i', 'b']:
+                    description += element.get_text(strip=True) + " "
+                elif element.name == 'ul':
+                    for li in element.find_all('li'):
+                        description += li.get_text(strip=True) + " "
+            description = ' '.join(description.split())
+
+            perks.append({
+                'name': perk_name,
+                'description': description,
+                'icon': icon_url
+            })
+
+            # Limitar a 3 perks por personagem
+            if len(perks) >= 3:
+                break
+
+        return perks
+
+    except Exception as e:
+        print(f"Erro ao extrair perks de {link}: {e}")
+        return []
 
 
 
@@ -44,11 +110,15 @@ def scrap_killer_details(link):
     if not real_name or real_name.lower() == apelido.lower():
         real_name = apelido
     dlc = info.get('DLC', 'Base')
+    power = info.get('Power')
 
+    # Extrair perks
+    perks = perk_scraper(link)
+    # Lista só dos nomes
+    perk_names = [p['name'] for p in perks]
 
-
-
-    print(f'Nome: {real_name}, Apelido: {apelido}, DLC: {dlc}')
+    perks_str = ", ".join(perk_names) if perk_names else "Nenhuma perk encontrada"
+    print(f'Nome: {real_name}, Poder: {power}, Perks: {perks_str}')
 
 
 def scrap_survivor_details(link):
@@ -75,6 +145,8 @@ def scrap_survivor_details(link):
     role = info.get('Role')
     dlc = info.get('DLC', 'Base')
 
+    perk_scraper(link)
+
     print(f'Nome: {name}, Genero: {gender}, Role:{role}, DLC: {dlc}')
 
 def killers_scrap():
@@ -82,6 +154,7 @@ def killers_scrap():
         link_relative = killer.get('href')
         links_completo = url_base + link_relative
         scrap_killer_details(links_completo)
+
 def survivor_scrap():
     for survivor in survivor_links:
         link_relative = survivor.get('href')
@@ -89,16 +162,17 @@ def survivor_scrap():
         scrap_survivor_details(links_completo)
 
 
+
 def main():
     #survivor_scrap()
     print(' ')
-    #killers_scrap()
+    killers_scrap()
 
-    taurie = perk_scraper('https://deadbydaylight.wiki.gg/wiki/Taurie_Cain')
-    trapper = perk_scraper('https://deadbydaylight.wiki.gg/wiki/Evan_MacMillan')
+    #taurie = perk_scraper('https://deadbydaylight.wiki.gg/wiki/Taurie_Cain')
+    #trapper = perk_scraper('https://deadbydaylight.wiki.gg/wiki/Evan_MacMillan')
 
-    print(taurie)
-    print(trapper)
+    #print(taurie)
+    #print(trapper)
 
 if __name__ == '__main__':
     main()
