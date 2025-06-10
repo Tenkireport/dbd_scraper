@@ -11,6 +11,12 @@ survivor_tab = soup.select_one('article#Survivors-0')
 killer_links = killer_tab.select("div.charPortraitImage a")
 survivor_links = survivor_tab.select("div.charPortraitImage a")
 
+def power_scraper(link):
+    res = requests.get(link)
+    soup = BeautifulSoup(res.text, 'lxml')
+
+
+
 
 def perk_scraper(link):
     try:
@@ -86,8 +92,6 @@ def perk_scraper(link):
         return []
 
 
-
-
 def scrap_killer_details(link):
     res = requests.get(link)
     soup = BeautifulSoup(res.text, 'lxml')
@@ -96,30 +100,49 @@ def scrap_killer_details(link):
     table = soup.select_one('table.infoboxtable.charInfoboxTable.killerInfobox')
     if not table:
         print("Nenhuma tabela encontrada")
-        return
+        return None
+
     info = {}
+    power_link = None  # Inicializa a variável para o link do poder
+
     for row in table.select('tr'):
         cols = row.find_all(['th', 'td'])
         if len(cols) == 2:
             key = ' '.join(cols[0].get_text(strip=True).split())
             value = ' '.join(cols[1].get_text(strip=True).split())
             info[key] = value
+
+            # Verifica se é a linha do Power e extrai o link
+            if key == 'Power':
+                power_anchor = cols[1].find('a')
+                if power_anchor and power_anchor.has_attr('href'):
+                    power_link = power_anchor['href']
+                    # Converte para URL absoluta se necessário
+                    if not power_link.startswith('http'):
+                        base_url = "https://deadbydaylight.fandom.com"
+                        power_link = base_url + power_link
+
     apelido = soup.select_one('th.bold').text.strip()
+
     # Se não tiver nome real, usa o apelido
-    real_name = info.get('Name')
-    if not real_name or real_name.lower() == apelido.lower():
-        real_name = apelido
+    real_name = info.get('Name', apelido)
+
     dlc = info.get('DLC', 'Base')
-    power = info.get('Power')
+    power_name = info.get('Power', 'Unknown')
 
     # Extrair perks
     perks = perk_scraper(link)
-    # Lista só dos nomes
-    perk_names = [p['name'] for p in perks]
+    perk_names = [perk['name'] for perk in perks] if perks else []
 
-    perks_str = ", ".join(perk_names) if perk_names else "Nenhuma perk encontrada"
-    print(f'Nome: {real_name}, Poder: {power}, Perks: {perks_str}')
-
+    # Retorna todos os dados incluindo o link do power
+    return {
+        'nickname': apelido,
+        'real_name': real_name,
+        'dlc': dlc,
+        'power_name': power_name,
+        'power_link': power_link,  # Link extraído
+        'perks': perk_names
+    }
 
 def scrap_survivor_details(link):
     res = requests.get(link)
@@ -166,10 +189,15 @@ def survivor_scrap():
 def main():
     #survivor_scrap()
     print(' ')
-    killers_scrap()
+    #killers_scrap()
+
+
+    #print(scrap_killer_details('https://deadbydaylight.wiki.gg/wiki/Evan_MacMillan'))
 
     #taurie = perk_scraper('https://deadbydaylight.wiki.gg/wiki/Taurie_Cain')
     #trapper = perk_scraper('https://deadbydaylight.wiki.gg/wiki/Evan_MacMillan')
+
+    print(power_scraper('https://deadbydaylight.wiki.gg/wiki/Evan_MacMillan'))
 
     #print(taurie)
     #print(trapper)
