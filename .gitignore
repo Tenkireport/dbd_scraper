@@ -1,0 +1,27 @@
+# Variáveis de ambiente (essencial para segurança!)
+.env
+
+# Pastas e arquivos de ambiente virtual
+.venv/
+env/
+venv/
+.env # Se você tiver múltiplos arquivos .env
+
+# Pastas de cache do Python
+__pycache__/
+
+# Arquivos compilados do Python
+*.pyc
+
+# Logs
+*.log
+
+# Arquivos de banco de dados SQLite (se você estivesse usando, mas não para Supabase)
+*.db
+*.sqlite
+*.sqlite3
+
+# Pastas de IDEs (opcional, mas comum para manter o projeto limpo)
+.idea/  # PyCharm
+.vscode/ # VS Code
+*.iml   # PyCharm module files
